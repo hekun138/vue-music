@@ -38,11 +38,15 @@
     <div class="list-fixed" v-show="fixedTitle" ref="fixed">
       <h1 class="fixed-title">{{fixedTitle}}</h1>
     </div>
+    <div v-show="!data.length" class="loading-container">
+      <loading></loading>
+    </div>
   </scroll>
 </template>
 
 <script>
 import Scroll from '@/base/scroll/scroll'
+import Loading from '@/base/loading/loading'
 import { getData } from '@/common/js/dom'
 
 const ANCHOR_HEIGHT = 18
@@ -146,8 +150,6 @@ export default {
 
       // 在中间部分滚动
       // 计算currentIndex
-      console.log(listHeight)
-      console.log(newY)
       for (let i = 0; i < listHeight.length - 1; i++) {
         const height1 = listHeight[i]
         const height2 = listHeight[i + 1]
@@ -171,7 +173,8 @@ export default {
     }
   },
   components: {
-    Scroll
+    Scroll,
+    Loading
   }
 }
 </script>
@@ -245,6 +248,12 @@ export default {
       color: $color-text-l;
       background-color: $color-highlight-background;
     }
+  }
+  .loading-container {
+    position: absolute;
+    width: 100%;
+    top: 50%;
+    transform: translateY(-50%);
   }
 }
 </style>
