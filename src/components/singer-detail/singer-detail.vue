@@ -9,7 +9,7 @@ import MusicList from '@/components/music-list/music-list'
 import { mapGetters } from 'vuex'
 import { getSingerDetail } from '@/api/singer'
 import { ERR_OK } from '@/api/config'
-import { createSong } from '@/common/js/song'
+import { createSong, processSongUrl } from '@/common/js/song'
 
 export default {
   data () {
@@ -40,7 +40,9 @@ export default {
       }
       getSingerDetail(this.singer.id).then(res => {
         if (res.code === ERR_OK) {
-          this.songs = this._normalizeSongs(res.data.list)
+          processSongUrl(this._normalizeSongs(res.data.list)).then(songs => {
+            this.songs = songs
+          })
         }
       })
     },
