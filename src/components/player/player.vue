@@ -21,25 +21,32 @@
         <div class="middle">
           <div class="middle-l">
             <div class="cd-wrapper" ref="cdWrapper">
-              <div class="cd">
+              <div class="cd" :class="cdCls">
                 <img class="image" :src="currentSong.image">
               </div>
             </div>
           </div>
         </div>
         <div class="bottom">
+          <div class="progress-wrapper">
+            <span class="time time-l">{{format(currentTime)}}</span>
+            <div class="progress-bar-wrapper">
+              <progress-bar :percent="percent" @percentChange="onProgressBarChange"></progress-bar>
+            </div>
+            <span class="time time-r">{{format(currentSong.duration)}}</span>
+          </div>
           <div class="operators">
             <div class="icon i-left">
               <i class="icon-sequence"></i>
             </div>
-            <div class="icon i-left">
-              <i class="icon-prev"></i>
+            <div class="icon i-left" :class="disableCls">
+              <i class="icon-prev" @click="prev"></i>
             </div>
-            <div class="icon i-center">
+            <div class="icon i-center" :class="disableCls">
               <i :class="playIcon" @click="togglePlaying"></i>
             </div>
-            <div class="icon i-right">
-              <i class="icon-next"></i>
+            <div class="icon i-right" :class="disableCls">
+              <i class="icon-next" @click="next"></i>
             </div>
             <div class="icon i-right">
               <i class="icon icon-not-favorite"></i>
@@ -65,7 +72,13 @@
         </div>
       </div>
     </transition>
-    <audio ref="audio" :src="currentSong.url"></audio>
+    <audio
+      ref="audio"
+      :src="currentSong.url"
+      @canplay="ready"
+      @error="error"
+      @timeupdate="updateTime"
+    ></audio>
   </div>
 </template>
 
@@ -73,26 +86,76 @@
 import { mapGetters, mapMutations } from 'vuex'
 import animations from 'create-keyframe-animation'
 import { prefixStyle } from '@/common/js/dom'
-
+import ProgressBar from '@/base/progress-bar/progress-bar'
 const transform = prefixStyle('transform')
 
 export default {
+  data () {
+    return {
+      songReady: false,
+      currentTime: 0
+    }
+  },
   computed: {
+    percent () {
+      return this.currentTime / this.currentSong.duration
+    },
+    cdCls () {
+      return this.playing ? 'play' : 'play pause'
+    },
     playIcon () {
       return this.playing ? 'icon-pause' : 'icon-play'
     },
     miniIcon () {
       return this.playing ? 'icon-pause-mini' : 'icon-play-mini'
     },
+    disableCls () {
+      return this.songReady ? '' : 'disbale'
+    },
     ...mapGetters([
       'fullScreen',
       'playList',
       'currentSong',
-      'playing'
+      'playing',
+      'currentIndex'
     ])
   },
   methods: {
+    // 补0
+    _pad (num, n = 2) {
+      let len = num.toString().length
+      while (len < n) {
+        num = '0' + num
+        len++
+      }
+      return num
+    },
+    format (interval) {
+      interval = interval | 0
+      const minute = interval / 60 | 0
+      const second = (interval % 60).toString().padStart(2, 0)
+      return `${minute}:${second}`
+    },
+    onProgressBarChange (percent) {
+      this.$refs.audio.currentTime = this.currentSong.duration * percent
+      if (!this.playing) {
+        this.togglePlaying()
+      }
+    },
+    updateTime (e) {
+      this.currentTime = e.target.currentTime
+    },
+    ready () {
+      this.songReady = true
+    },
+    error () {
+      this.songReady = true
+    },
     togglePlaying () {
+      // 防止快速点击错误
+      if (!this.songReady) {
+        return
+      }
       this.setPlayingState(!this.playing)
     },
     back () {
@@ -100,6 +163,38 @@ export default {
     },
     open () {
       this.setFullScreen(true)
+    },
+    prev () {
+      // 防止快速点击错误
+      if (!this.songReady) {
+        return
+      }
+      let index = this.currentIndex - 1
+      if (index === -1) {
+        index = this.playList.length - 1
+      }
+      this.setCurrentIndex(index)
+
+      if (!this.playing) {
+        this.togglePlaying()
+      }
+      this.songReady = false
+    },
+    next () {
+      // 防止快速点击错误
+      if (!this.songReady) {
+        return
+      }
+      let index = this.currentIndex + 1
+      if (index === this.playList.length) {
+        index = 0
+      }
+      this.setCurrentIndex(index)
+
+      if (!this.playing) {
+        this.togglePlaying()
+      }
+      this.songReady = false
     },
     enter (el, done) {
       const { x, y, scale } = this._getPosAndStyle()
@@ -168,7 +263,8 @@ export default {
     },
     ...mapMutations({
       setFullScreen: 'SET_FULL_SCREEN',
-      setPlayingState: 'SET_PLAYING_STATE'
+      setPlayingState: 'SET_PLAYING_STATE',
+      setCurrentIndex: 'SET_CURRENT_INDEX'
     })
   },
   watch: {
@@ -183,6 +279,9 @@ export default {
         newPlaying ? audio.play() : audio.pause()
       })
     }
+  },
+  components: {
+    ProgressBar
   }
 }
 </script>
@@ -281,6 +380,12 @@ export default {
             box-sizing: border-box;
             border: 10px solid rgba(255, 255, 255, 0.1);
             border-radius: 50%;
+            &.play {
+              animation: rotate 20s linear infinite;
+            }
+            &.pause {
+              animation-play-state: paused;
+            }
             .image {
               position: absolute;
               left: 0;
@@ -297,6 +402,29 @@ export default {
       position: absolute;
       bottom: 50px;
       width: 100%;
+      .progress-wrapper {
+        display: flex;
+        align-items: center;
+        width: 80%;
+        margin: 0 auto;
+        padding: 10px 0;
+        .progress-bar-wrapper {
+          flex: 1;
+        }
+        .time {
+          color: $color-text;
+          font-size: $font-size-small;
+          flex: 0 0 30px;
+          line-height: 30px;
+          width: 30px;
+          &.time-l {
+            text-align: left;
+          }
+          &.time-r {
+            text-align: right;
+          }
+        }
+      }
       .operators {
         display: flex;
         align-items: center;
@@ -306,6 +434,9 @@ export default {
           i {
             font-size: 30px;
           }
+        }
+        &.disable {
+          color: $color-theme-d;
         }
         .i-left {
           text-align: right;
@@ -371,6 +502,15 @@ export default {
       width: 30px;
       padding: 0 10px;
     }
+  }
+}
+
+@keyframes rotate {
+  0% {
+    transform: rotate(0);
+  }
+  100% {
+    transform: rotate(360deg);
   }
 }
 </style>
