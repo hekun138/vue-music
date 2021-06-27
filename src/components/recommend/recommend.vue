@@ -1,15 +1,17 @@
 <template>
-  <div class="recommend">
+  <div class="recommend" ref="recommend">
     <scroll ref="scroll" class="recommend-content" :data="discList">
       <div>
         <div v-if="recommends.length" class="slider-wrapper">
-          <slider>
-            <div v-for="item in recommends" :key="item.id">
-              <a :href="item.id">
-                <img class="needsclick" @load="loadImage" :src="item.picUrl"/>
-              </a>
-            </div>
-          </slider>
+          <div class="slider-content">
+            <slider>
+              <div v-for="item in recommends" :key="item.id">
+                <a :href="item.id">
+                  <img class="needsclick" @load="loadImage" :src="item.picUrl"/>
+                </a>
+              </div>
+            </slider>
+          </div>
         </div>
         <div class="recommend-list">
           <h1 class="list-title">热门歌单推荐</h1>
@@ -39,8 +41,10 @@ import Scroll from '@/base/scroll/scroll'
 import Slider from '@/base/slider/slider'
 import { getRecommend, getDiscList } from '@/api/recommend'
 import { ERR_OK } from '@/api/config'
+import { playListMixin } from '@/common/js/mixin'
 
 export default {
+  mixins: [playListMixin],
   data () {
     return {
       // 轮播图
@@ -56,6 +60,11 @@ export default {
     this._getDiscList()
   },
   methods: {
+    handlePlaylist (playList) {
+      const bottom = playList.length > 0 ? '60px' : ''
+      this.$refs.recommend.style.bottom = bottom
+      this.$refs.scroll.refresh()
+    },
     _getRecommend () {
       getRecommend().then((res) => {
         if (res.code === ERR_OK) {
@@ -98,7 +107,16 @@ export default {
     .slider-wrapper {
       position: relative;
       width: 100%;
+      height: 0;
+      padding-top: 40%;
       overflow: hidden;
+      .slider-content {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
     }
     .recommend-list {
       .list-title {

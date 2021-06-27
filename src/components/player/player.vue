@@ -18,12 +18,19 @@
           <h1 class="title" v-html="currentSong.name"></h1>
           <h2 class="subTitle" v-html="currentSong.singer"></h2>
         </div>
-        <div class="middle">
-          <div class="middle-l">
+        <div class="middle"
+          @touchstart="middleTouchStart"
+          @touchmove="middleTouchMove"
+          @touchend="middleTouchEnd"
+          >
+          <div class="middle-l" ref="middleL">
             <div class="cd-wrapper" ref="cdWrapper">
               <div class="cd" :class="cdCls">
                 <img class="image" :src="currentSong.image">
               </div>
+            </div>
+            <div class="playing-lyric-wrapper">
+              <div class="playing-lyric">{{playingLyric}}</div>
             </div>
           </div>
            <scroll class="middle-r" ref="lyricList" :data="currentLyric && currentLyric.lines">
@@ -111,6 +118,7 @@ import { shuffle } from '@/common/js/util'
 import Lyric from 'lyric-parser'
 import Scroll from '@/base/scroll/scroll'
 const transform = prefixStyle('transform')
+const transitionDuration = prefixStyle('transitionDuration')
 
 export default {
   data () {
@@ -120,8 +128,12 @@ export default {
       radius: 32,
       currentLyric: null,
       currentLineNum: 0, // 当前歌词所在行
-      currentShow: 'cd'
+      currentShow: 'cd',
+      playingLyric: ''
     }
+  },
+  created () {
+    this.touch = {}
   },
   computed: {
     percent () {
@@ -153,6 +165,61 @@ export default {
     ])
   },
   methods: {
+    middleTouchStart (e) {
+      this.touch.initiated = true
+      const touch = e.touches[0]
+      this.touch.startX = touch.pageX
+      this.touch.startY = touch.pageY
+    },
+    middleTouchMove (e) {
+      if (!this.touch.initiated) {
+        return
+      }
+      const touch = e.touches[0]
+      const deltaX = touch.pageX - this.touch.startX
+      const deltaY = touch.pageY - this.touch.startY
+
+      if (Math.abs(deltaY) > Math.abs(deltaX)) {
+        return
+      }
+
+      const left = this.currentShow === 'cd' ? 0 : -window.innerWidth
+      const offsetWidth = Math.min(0, Math.max(-window.innerWidth, left + deltaX))
+      // 滑动的比例
+      this.touch.percent = Math.abs(offsetWidth / window.innerWidth)
+      this.$refs.lyricList.$el.style[transform] = `translate3d(${offsetWidth}px, 0, 0)`
+      this.$refs.lyricList.$el.style[transitionDuration] = 0
+      this.$refs.middleL.style.opacity = 1 - this.touch.percent
+      this.$refs.middleL.style[transitionDuration] = 0
+    },
+    middleTouchEnd () {
+      let offsetWidth
+      let opacity
+      if (this.currentShow === 'cd') {
+        if (this.touch.percent > 0.1) {
+          opacity = 0
+          offsetWidth = -window.innerWidth
+          this.currentShow = 'lyric'
+        } else {
+          opacity = 1
+          offsetWidth = 0
+        }
+      } else {
+        if (this.touch.percent < 0.9) {
+          opacity = 1
+          offsetWidth = 0
+          this.currentShow = 'cd'
+        } else {
+          opacity = 0
+          offsetWidth = -window.innerWidth
+        }
+      }
+      const time = 300
+      this.$refs.lyricList.$el.style[transform] = `translate3d(${offsetWidth}px, 0, 0)`
+      this.$refs.lyricList.$el.style[transitionDuration] = `${time}ms`
+      this.$refs.middleL.style.opacity = opacity
+      this.$refs.middleL.style[transitionDuration] = `${time}ms`
+    },
     // 改变播放模式
     changeMode () {
       const mode = (this.mode + 1) % 3
@@ -181,6 +248,10 @@ export default {
         if (this.playing) {
           this.currentLyric.play()
         }
+      }).catch(() => {
+        this.currentLyric = null
+        this.playingLyric = ''
+        this.currentLineNum = 0
       })
     },
     handleLyric ({ lineNum, txt }) {
@@ -191,6 +262,7 @@ export default {
       } else {
         this.$refs.lyricList.scrollTo(0, 0)
       }
+      this.playingLyric = txt
     },
     // 补0
     _pad (num, n = 2) {
@@ -208,9 +280,13 @@ export default {
       return `${minute}:${second}`
     },
     onProgressBarChange (percent) {
+      const currentTime = this.currentSong.duration * percent
       this.$refs.audio.currentTime = this.currentSong.duration * percent
       if (!this.playing) {
         this.togglePlaying()
+      }
+      if (this.currentLyric) {
+        this.currentLyric.seek(currentTime * 1000)
       }
     },
     updateTime (e) {
@@ -228,6 +304,9 @@ export default {
         return
       }
       this.setPlayingState(!this.playing)
+      if (this.currentLyric) {
+        this.currentLyric.togglePlay()
+      }
     },
     back () {
       this.setFullScreen(false)
@@ -240,14 +319,19 @@ export default {
       if (!this.songReady) {
         return
       }
-      let index = this.currentIndex - 1
-      if (index === -1) {
-        index = this.playList.length - 1
-      }
-      this.setCurrentIndex(index)
+      // 如果列表只有一首歌曲
+      if (this.playList.length === 1) {
+        this.loop()
+      } else {
+        let index = this.currentIndex - 1
+        if (index === -1) {
+          index = this.playList.length - 1
+        }
+        this.setCurrentIndex(index)
 
-      if (!this.playing) {
-        this.togglePlaying()
+        if (!this.playing) {
+          this.togglePlaying()
+        }
       }
       this.songReady = false
     },
@@ -261,20 +345,28 @@ export default {
     loop () {
       this.$refs.audio.currentTime = 0
       this.$refs.audio.play()
+      if (this.currentLyric) {
+        this.currentLyric.seek(0)
+      }
     },
     next () {
       // 防止快速点击错误
       if (!this.songReady) {
         return
       }
-      let index = this.currentIndex + 1
-      if (index === this.playList.length) {
-        index = 0
-      }
-      this.setCurrentIndex(index)
+      // 如果列表只有一首歌曲
+      if (this.playList.length === 1) {
+        this.loop()
+      } else {
+        let index = this.currentIndex + 1
+        if (index === this.playList.length) {
+          index = 0
+        }
+        this.setCurrentIndex(index)
 
-      if (!this.playing) {
-        this.togglePlaying()
+        if (!this.playing) {
+          this.togglePlaying()
+        }
       }
       this.songReady = false
     },
@@ -356,10 +448,14 @@ export default {
       if (newSong.id === oldSong.id) {
         return
       }
-      this.$nextTick(() => {
+      if (this.currentLyric) {
+        this.currentLyric.stop()
+      }
+      // 兼容微信浏览器，不用this.$nextTick
+      setTimeout(() => {
         this.$refs.audio.play()
         this.getLyric()
-      })
+      }, 1000)
     },
     playing (newPlaying) {
       const audio = this.$refs.audio
@@ -485,6 +581,18 @@ export default {
               height: 100%;
               border-radius: 50%;
             }
+          }
+        }
+        .playing-lyric-wrapper {
+          width: 80%;
+          margin: 30px auto 0 auto;
+          overflow: hidden;
+          text-align: center;
+          .playing-lyric {
+            height: 20px;
+            line-height: 20px;
+            font-size: $font-size-medium;
+            color: $color-text-l;
           }
         }
       }
