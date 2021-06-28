@@ -11,7 +11,13 @@ const routes = [
   {
     path: '/recommend',
     name: 'recommend',
-    component: () => import(/* webpackChunkName: "recommend" */ '../components/recommend/recommend.vue')
+    component: () => import(/* webpackChunkName: "recommend" */ '../components/recommend/recommend.vue'),
+    children: [
+      {
+        path: ':id',
+        component: () => import(/* webpackChunkName: "disc" */'../components/disc/disc.vue')
+      }
+    ]
   },
   {
     path: '/singer',
