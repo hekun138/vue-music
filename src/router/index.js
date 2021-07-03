@@ -33,7 +33,13 @@ const routes = [
   {
     path: '/rank',
     name: 'rank',
-    component: () => import(/* webpackChunkName: "rank" */ '../components/rank/rank.vue')
+    component: () => import(/* webpackChunkName: "rank" */ '../components/rank/rank.vue'),
+    children: [
+      {
+        path: ':id',
+        component: () => import(/* webpackChunkName: "top-list" */'../components/top-list/top-list.vue')
+      }
+    ]
   },
   {
     path: '/search',
