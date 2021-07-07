@@ -1,9 +1,25 @@
 <template>
-  <div>
-    search
+  <div class="search">
+    <div class="search-box-wrapper">
+      <search-box></search-box>
+    </div>
   </div>
 </template>
 
-<script></script>
+<script type="text/ecmascript-6">
+import SearchBox from '@/base/search-box/search-box'
 
-<style></style>
+export default {
+  components: {
+    SearchBox
+  }
+}
+</script>
+
+<style lang="scss" scoped>
+.search {
+  .search-box-wrapper {
+    margin: 20px;
+  }
+}
+</style>
