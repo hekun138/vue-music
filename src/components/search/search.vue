@@ -3,7 +3,7 @@
     <div class="search-box-wrapper">
       <search-box ref="searchBox"></search-box>
     </div>
-    <div class="shortcut-wrapper">
+    <!-- <div class="shortcut-wrapper">
       <div class="shortcut">
         <div class="hot-key">
           <h1 class="title">热门搜索</h1>
@@ -14,6 +14,9 @@
           </ul>
         </div>
       </div>
+    </div> -->
+    <div class="search-result">
+      <suggest :query="'周杰伦'"></suggest>
     </div>
   </div>
 </template>
@@ -22,6 +25,7 @@
 import SearchBox from '@/base/search-box/search-box'
 import { getHotKey } from '@/api/search'
 import { ERR_OK } from '@/api/config'
+import Suggest from '../suggest/suggest'
 
 export default {
   created () {
@@ -45,7 +49,8 @@ export default {
     }
   },
   components: {
-    SearchBox
+    SearchBox,
+    Suggest
   }
 }
 </script>

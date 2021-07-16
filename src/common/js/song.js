@@ -59,12 +59,17 @@ function filterSinger (singer) {
   return ret.join('/')
 }
 
+export function isValidMusic (musicData) {
+  return musicData.songid && musicData.albummid && (!musicData.pay || musicData.pay.payalbumprice === 0)
+}
+
 export function processSongUrl (songs) {
   if (!songs.length) {
     return Promise.resolve(songs)
   }
 
   return getSongsUrl(songs).then((purlMap) => {
+    console.log(songs)
     songs = songs.filter(song => {
       const purl = purlMap[song.mid]
       if (purl) {
